@@ -1,0 +1,510 @@
+@page "/"
+@implements IDisposable
+@using CRManager.Shared.DTOs
+@using CRManager.Shared.Services
+@using CRManager.Shared.Components
+@inject ICardApiService ApiService
+@inject IAuthService AuthService
+@inject NavigationManager NavigationManager
+
+<!-- Toast Notification -->
+@if (!string.IsNullOrEmpty(_toastMessage))
+{
+    <div class="fixed top-5 left-1/2 -translate-x-1/2 z-[100] w-[92%] max-w-md shadow-2xl transition-all" dir="rtl">
+        <div class="flex items-center gap-3 px-4 py-3 rounded-xl border backdrop-blur-md shadow-lg @(_toastType == "success" ? "bg-emerald-950/95 border-emerald-500/80 text-emerald-100 shadow-emerald-950/50" : (_toastType == "error" ? "bg-rose-950/95 border-rose-500/80 text-rose-100 shadow-rose-950/50" : "bg-blue-950/95 border-blue-500/80 text-blue-100 shadow-blue-950/50"))">
+            <span class="text-xl shrink-0">
+                @if (_toastType == "success") { <span>✅</span> }
+                else if (_toastType == "error") { <span>❌</span> }
+                else { <span>ℹ️</span> }
+            </span>
+            <div class="text-xs sm:text-sm font-bold flex-1 text-right leading-relaxed">
+                @_toastMessage
+            </div>
+            <button type="button" @onclick="CloseToast" class="text-slate-400 hover:text-white transition-colors text-sm px-1.5 py-0.5 rounded-lg hover:bg-white/10 shrink-0">
+                ✕
+            </button>
+        </div>
+    </div>
+}
+
+<div class="px-4 py-3 max-w-6xl mx-auto space-y-3 sm:space-y-4" dir="rtl">
+    <!-- Slim Top Header -->
+    <div class="flex flex-wrap justify-between items-center pb-2.5 border-b border-slate-800 gap-2">
+        <button type="button" @onclick="NavigateToHome" class="flex items-center gap-2 cursor-pointer hover:opacity-85 transition-all text-right group bg-transparent border-0 p-0 focus:outline-none" title="الرئيسية">
+            <span class="text-xl text-blue-500 group-hover:scale-110 transition-transform">💳</span>
+            <h1 class="text-xl sm:text-2xl font-black text-slate-100 tracking-tight group-hover:text-blue-400 transition-colors">محفظة الائتمان</h1>
+        </button>
+        
+        <!-- User Status & Action Buttons -->
+        <div class="flex items-center gap-2">
+            @if (_isAuthenticated)
+            {
+                <div class="hidden sm:flex items-center gap-1.5 bg-slate-900/80 px-2.5 py-1 rounded-lg border border-slate-700/60 text-xs">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                    <span class="text-slate-300 font-medium">@_userEmail</span>
+                    <button @onclick="HandleLogout" class="text-rose-400 hover:text-rose-300 font-bold mr-1 transition-colors">
+                        تسجيل الخروج
+                    </button>
+                </div>
+                <button @onclick="() => _isCardModalOpen = true" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-lg shadow transition-all flex items-center gap-1">
+                    <span>+ بطاقة</span>
+                </button>
+                <button @onclick="() => OpenNewTransactionModal(null)" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg shadow transition-all flex items-center gap-1">
+                    <span>+ معاملة</span>
+                </button>
+            }
+            else
+            {
+                <button @onclick="() => _isAuthModalOpen = true" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-lg shadow-lg transition-all flex items-center gap-1.5">
+                    <span>🔐 تسجيل / إنشاء حساب</span>
+                </button>
+            }
+        </div>
+    </div>
+
+    @if (!_isAuthenticated)
+    {
+        <!-- Unauthenticated Guest Hero Callout -->
+        <div class="glass-card p-8 rounded-2xl text-center space-y-3 border border-blue-900/40 bg-gradient-to-b from-slate-900 via-slate-900 to-indigo-950/40">
+            <div class="text-4xl">🔐</div>
+            <h2 class="text-xl font-extrabold text-slate-100">سجل الدخول للوصول إلى محفظة الائتمان الخاصة بك</h2>
+            <p class="text-xs sm:text-sm text-slate-400 max-w-md mx-auto">
+                إدارة حدود الائتمان، الأرصدة غير المسددة، ومواعيد الاستحقاق الشهرية بأمان.
+            </p>
+            <div class="pt-2">
+                <button @onclick="() => _isAuthModalOpen = true" class="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl shadow-lg transition-all">
+                    تسجيل الدخول أو إنشاء حساب →
+                </button>
+            </div>
+        </div>
+    }
+    else
+    {
+        <!-- Compact Sleek Credit Summary Bar (Adapts when viewing a specific card history) -->
+        <div class="glass-card rounded-xl border border-slate-700/70 bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950/70 shadow-lg relative overflow-hidden transition-all duration-300">
+            <div class="px-4 py-2.5 flex flex-wrap items-center justify-between gap-3">
+                <!-- Left: Debt / Limit -->
+                <div class="flex items-center gap-2.5">
+                    <div class="p-1.5 bg-blue-600/20 text-blue-400 rounded-lg text-base flex items-center justify-center">
+                        @if (_selectedCardForHistory != null)
+                        {
+                            <BankBadge BankName="@_selectedCardForHistory.BankName" Size="sm" />
+                        }
+                        else
+                        {
+                            <span>💳</span>
+                        }
+                    </div>
+                    <div class="text-right">
+                        <div class="text-[10px] uppercase font-bold tracking-wider text-slate-400 flex items-center gap-1.5">
+                            <span>@(_selectedCardForHistory != null ? $"دين بطاقة {_selectedCardForHistory.BankName} / الحد" : "إجمالي الدين / الحد")</span>
+                            @if (_selectedCardForHistory != null)
+                            {
+                                <span class="bg-blue-500/20 text-blue-300 text-[9px] px-1.5 py-0.5 rounded font-normal">خاص بالبطاقة</span>
+                            }
+                        </div>
+                        <div class="font-mono text-sm sm:text-base font-black tracking-tight flex items-baseline gap-1">
+                            <span class="text-rose-400 font-extrabold">@DisplayTotalDebt.ToString("N0") ج.م</span>
+                            <span class="text-slate-500 font-light">/</span>
+                            <span class="text-slate-200 text-xs sm:text-sm font-bold">@DisplayCreditLimit.ToString("N0") ج.م</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Center: Available Credit -->
+                <div class="text-center sm:border-x sm:border-slate-800 sm:px-4">
+                    <div class="text-[10px] uppercase font-bold tracking-wider text-slate-400">الرصيد المتاح</div>
+                    <div class="font-mono text-sm sm:text-base font-black @(DisplayAvailableCredit < 0 ? "text-rose-400" : "text-emerald-400")">
+                        @DisplayAvailableCredit.ToString("N0") ج.م
+                        <span class="text-[10px] text-slate-400 font-normal">(@DisplayUtilizationPercentage%)</span>
+                    </div>
+                </div>
+
+                <!-- Right: Next Due Settlement -->
+                <div class="text-left">
+                    <div class="text-[10px] uppercase font-bold tracking-wider text-slate-400">الاستحقاق التالي</div>
+                    @if (DisplayNearestSettlementDate.HasValue && DisplayNextSettlementAmount > 0)
+                    {
+                        <div class="text-xs sm:text-sm font-bold text-amber-300 font-mono flex items-center justify-start gap-1">
+                            <span>📅 @DisplayNearestSettlementDate.Value.ToString("yyyy-MM-dd")</span>
+                            <span class="text-amber-400">(@DisplayNextSettlementAmount.ToString("N0") ج.م)</span>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="text-xs sm:text-sm font-bold text-emerald-400">✓ تم التسوية</div>
+                    }
+                </div>
+            </div>
+
+            <!-- Slim Progress Bar along bottom edge -->
+            <div class="w-full h-1 bg-black/40 overflow-hidden">
+                <div class="h-full transition-all duration-500 @(DisplayUtilizationPercentage > 100 ? "bg-rose-600 animate-pulse" : (DisplayUtilizationPercentage > 70 ? "bg-amber-500" : "bg-gradient-to-r from-emerald-500 to-teal-400"))"
+                     style="width: @(Math.Min(DisplayUtilizationPercentage, 100))%"></div>
+            </div>
+        </div>
+
+        <!-- Compact Navigation Tabs -->
+        <div class="flex border-b border-slate-800 gap-1 sm:gap-2">
+            <button @onclick='() => SetTab("overview")' class="px-3 py-1.5 text-xs sm:text-sm font-bold border-b-2 transition-all @(_activeTab == "overview" ? "border-blue-500 text-blue-400" : "border-transparent text-slate-400 hover:text-slate-200")">
+                📊 نظرة عامة وبطاقات
+            </button>
+            <button @onclick='() => SetTab("cardsGrid")' class="px-3 py-1.5 text-xs sm:text-sm font-bold border-b-2 transition-all @(_activeTab == "cardsGrid" ? "border-blue-500 text-blue-400" : "border-transparent text-slate-400 hover:text-slate-200")">
+                💳 شبكة البطاقات
+            </button>
+            <button @onclick='() => SetTab("transactionsGrid")' class="px-3 py-1.5 text-xs sm:text-sm font-bold border-b-2 transition-all @(_activeTab == "transactionsGrid" ? "border-blue-500 text-blue-400" : "border-transparent text-slate-400 hover:text-slate-200")">
+                💸 دفتر المعاملات
+            </button>
+        </div>
+
+        <!-- Tab Content -->
+        @if (_selectedCardForHistory != null)
+        {
+            <CardHistoryView Card="_selectedCardForHistory" 
+                             Transactions="_cardHistoryTransactions" 
+                             OnBack="() => _selectedCardForHistory = null" 
+                             OnDeleteTransaction="DeleteTransactionAsync" 
+                             OnAddTransaction="(cardId) => OpenNewTransactionModal(cardId)"
+                             OnEditCard="OpenEditCardModal" />
+        }
+        else if (_activeTab == "overview")
+        {
+            <!-- Credit Cards Visualizer Grid -->
+            <div class="space-y-3">
+                @if (_isLoading)
+                {
+                    <div class="text-center py-6 text-slate-400 text-xs">جاري تحميل محفظة البطاقات...</div>
+                }
+                else if (_summary.Cards.Count == 0)
+                {
+                    <div class="glass-card p-6 rounded-2xl text-center text-slate-400 space-y-2">
+                        <div class="text-3xl">💳</div>
+                        <div class="text-base font-bold text-slate-200">لا توجد بطاقات ائتمان في المحفظة</div>
+                        <p class="text-xs">انقر على "+ بطاقة" أعلاه لإضافة بطاقتك الأولى.</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        @foreach (var card in _summary.Cards.OrderByDescending(c => c.TotalDebt))
+                        {
+                            <CreditCardVisualizer Card="card" OnViewHistory="OpenCardHistory" />
+                        }
+                    </div>
+                }
+            </div>
+
+            <div class="pt-2">
+                <TransactionLedger Transactions="_transactions" OnDeleteTransaction="DeleteTransactionAsync" />
+            </div>
+        }
+        else if (_activeTab == "cardsGrid")
+        {
+            <CardsGrid Cards="_summary.Cards.OrderByDescending(c => c.TotalDebt).ToList()" 
+                       OnNewCardClick="() => _isCardModalOpen = true" 
+                       OnViewHistory="OpenCardHistory" 
+                       OnEditCard="OpenEditCardModal"
+                       OnDeleteCard="DeleteCardAsync" />
+        }
+        else if (_activeTab == "transactionsGrid")
+        {
+            <TransactionsGrid Transactions="_transactions" 
+                              OnNewTransactionClick="() => OpenNewTransactionModal(null)"
+                              OnDeleteTransaction="DeleteTransactionAsync" />
+        }
+    }
+</div>
+
+<!-- Modal Dialogs -->
+<AuthModal @bind-IsOpen="_isAuthModalOpen" OnAuthSuccess="HandleAuthSuccess" />
+<NewCardModal @bind-IsOpen="_isCardModalOpen" OnCardSaved="HandleSaveCard" />
+<EditCardModal @bind-IsOpen="_isEditCardModalOpen" Card="_cardToEdit" OnCardUpdated="HandleUpdateCard" />
+<NewTransactionModal @bind-IsOpen="_isTransactionModalOpen" Cards="_summary.Cards" PreselectedCardId="_selectedCardIdForTransaction" OnTransactionSaved="HandleSaveTransaction" />
+
+@code {
+    private string _activeTab = "overview";
+    private DashboardSummaryDto _summary = new();
+    private List<TransactionDto> _transactions = new();
+
+    private CreditCardSummaryDto? _selectedCardForHistory;
+    private List<TransactionDto> _cardHistoryTransactions = new();
+    private Guid? _selectedCardIdForTransaction;
+    private bool _isLoading = true;
+
+    private decimal DisplayTotalDebt => _selectedCardForHistory?.TotalDebt ?? _summary.TotalDebt;
+    private decimal DisplayCreditLimit => _selectedCardForHistory?.CreditLimit ?? _summary.TotalCreditLimit;
+    private decimal DisplayAvailableCredit => _selectedCardForHistory?.AvailableCredit ?? _summary.TotalAvailableCredit;
+    private decimal DisplayUtilizationPercentage => _selectedCardForHistory?.UtilizationPercentage ?? _summary.UtilizationPercentage;
+    private DateTime? DisplayNearestSettlementDate => _selectedCardForHistory?.NextSettlementDate ?? _summary.NearestSettlementDate;
+    private decimal DisplayNextSettlementAmount => _selectedCardForHistory?.NextSettlementAmount ?? _summary.TotalNextSettlementAmount;
+
+    private bool _isAuthenticated;
+    private string? _userEmail;
+    private bool _isAuthModalOpen;
+
+    private bool _isCardModalOpen;
+    private bool _isEditCardModalOpen;
+    private CreditCardSummaryDto? _cardToEdit;
+    private bool _isTransactionModalOpen;
+
+    private string? _toastMessage;
+    private string _toastType = "success";
+    private CancellationTokenSource? _toastCts;
+
+    private void OpenEditCardModal(CreditCardSummaryDto card)
+    {
+        _cardToEdit = card;
+        _isEditCardModalOpen = true;
+    }
+
+    private void OpenNewTransactionModal(Guid? cardId = null)
+    {
+        _selectedCardIdForTransaction = cardId;
+        _isTransactionModalOpen = true;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        AuthService.OnAuthStateChanged += async () =>
+        {
+            await CheckAuthStateAndRefreshAsync();
+        };
+
+        await CheckAuthStateAndRefreshAsync();
+    }
+
+    private async Task CheckAuthStateAndRefreshAsync()
+    {
+        try
+        {
+            _isAuthenticated = await AuthService.IsAuthenticatedAsync();
+            if (_isAuthenticated)
+            {
+                var email = await AuthService.GetCurrentUserEmailAsync();
+                if (string.IsNullOrEmpty(email))
+                {
+                    _isAuthenticated = false;
+                    _userEmail = null;
+                    _summary = new();
+                    _transactions = new();
+                    _isLoading = false;
+                }
+                else
+                {
+                    _userEmail = email;
+                    await RefreshDataAsync();
+                }
+            }
+            else
+            {
+                _userEmail = null;
+                _summary = new();
+                _transactions = new();
+                _isLoading = false;
+            }
+        }
+        catch
+        {
+            _isLoading = false;
+        }
+        StateHasChanged();
+    }
+
+    private async Task HandleAuthSuccess()
+    {
+        await CheckAuthStateAndRefreshAsync();
+    }
+
+    private async Task HandleLogout()
+    {
+        await AuthService.LogoutAsync();
+        await CheckAuthStateAndRefreshAsync();
+    }
+
+    private void NavigateToHome()
+    {
+        _selectedCardForHistory = null;
+        _activeTab = "overview";
+        NavigationManager.NavigateTo("/");
+        StateHasChanged();
+    }
+
+    private void SetTab(string tab)
+    {
+        _selectedCardForHistory = null;
+        _activeTab = tab;
+        StateHasChanged();
+    }
+
+    private async Task RefreshDataAsync()
+    {
+        if (!_isAuthenticated) return;
+
+        _isLoading = true;
+        try
+        {
+            var dash = await ApiService.GetDashboardSummaryAsync();
+            if (dash != null)
+            {
+                dash.Cards = dash.Cards.OrderByDescending(c => c.TotalDebt).ToList();
+                _summary = dash;
+            }
+            else
+            {
+                var cards = await ApiService.GetCardsAsync();
+                var orderedCards = cards.OrderByDescending(c => c.TotalDebt).ToList();
+                _summary = new DashboardSummaryDto
+                {
+                    Cards = orderedCards,
+                    TotalCreditLimit = cards.Sum(c => c.CreditLimit),
+                    TotalDebt = cards.Sum(c => c.TotalDebt),
+                    TotalNextSettlementAmount = cards.Sum(c => c.NextSettlementAmount),
+                    TotalAvailableCredit = cards.Sum(c => c.AvailableCredit),
+                    NearestSettlementDate = cards.Where(c => c.NextSettlementDate.HasValue).Select(c => c.NextSettlementDate!.Value).DefaultIfEmpty().Min()
+                };
+            }
+
+            _transactions = await ApiService.GetTransactionsAsync();
+
+            if (_selectedCardForHistory != null)
+            {
+                _selectedCardForHistory = _summary.Cards.FirstOrDefault(c => c.Id == _selectedCardForHistory.Id);
+                _cardHistoryTransactions = _transactions.Where(t => t.CreditCardId == _selectedCardForHistory?.Id).ToList();
+            }
+        }
+        catch
+        {
+            // Suppress error and let UI render
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task HandleSaveCard(CreateCreditCardRequest request)
+    {
+        var result = await ApiService.CreateCardAsync(request);
+        await RefreshDataAsync();
+        if (result != null)
+        {
+            ShowToast($"تمت إضافة بطاقة {result.BankName} بنجاح! 💳", "success");
+        }
+        else
+        {
+            ShowToast("حدث خطأ أثناء إضافة البطاقة. يرجى المحاولة مرة أخرى.", "error");
+        }
+    }
+
+    private async Task HandleUpdateCard((Guid Id, UpdateCreditCardRequest Request) update)
+    {
+        var result = await ApiService.UpdateCardAsync(update.Id, update.Request);
+        await RefreshDataAsync();
+        if (result != null)
+        {
+            ShowToast($"تم تحديث بيانات بطاقة {result.BankName} بنجاح! ✏️", "success");
+        }
+        else
+        {
+            ShowToast("حدث خطأ أثناء تحديث البطاقة. يرجى المحاولة مرة أخرى.", "error");
+        }
+    }
+
+    private async Task HandleSaveTransaction(CreateTransactionRequest request)
+    {
+        var result = await ApiService.LogTransactionAsync(request);
+        await RefreshDataAsync();
+        if (result != null)
+        {
+            var msg = request.Type == TransactionType.Payment
+                ? $"تم تسجيل عملية السداد بمبلغ {request.Amount:N0} ج.م بنجاح! 💸"
+                : $"تم تسجيل معاملة الشراء بمبلغ {request.Amount:N0} ج.م بنجاح! 💸";
+            ShowToast(msg, "success");
+        }
+        else
+        {
+            ShowToast("حدث خطأ أثناء تسجيل المعاملة. يرجى المحاولة مرة أخرى.", "error");
+        }
+    }
+
+    private async Task DeleteCardAsync(Guid cardId)
+    {
+        var success = await ApiService.DeleteCardAsync(cardId);
+        await RefreshDataAsync();
+        if (success)
+        {
+            ShowToast("تم حذف البطاقة بنجاح! 🗑️", "success");
+        }
+        else
+        {
+            ShowToast("حدث خطأ أثناء حذف البطاقة.", "error");
+        }
+    }
+
+    private async Task DeleteTransactionAsync(Guid transactionId)
+    {
+        var success = await ApiService.DeleteTransactionAsync(transactionId);
+        await RefreshDataAsync();
+        if (success)
+        {
+            ShowToast("تم حذف المعاملة بنجاح! 🗑️", "success");
+        }
+        else
+        {
+            ShowToast("حدث خطأ أثناء حذف المعاملة.", "error");
+        }
+    }
+
+    private void ShowToast(string message, string type = "success")
+    {
+        _toastCts?.Cancel();
+        _toastCts?.Dispose();
+        _toastCts = new CancellationTokenSource();
+        var token = _toastCts.Token;
+
+        _toastMessage = message;
+        _toastType = type;
+        StateHasChanged();
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(4000, token);
+                if (!token.IsCancellationRequested)
+                {
+                    _toastMessage = null;
+                    await InvokeAsync(StateHasChanged);
+                }
+            }
+            catch (TaskCanceledException)
+            {
+                // Ignored
+            }
+        });
+    }
+
+    private void CloseToast()
+    {
+        _toastCts?.Cancel();
+        _toastMessage = null;
+        StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        _toastCts?.Cancel();
+        _toastCts?.Dispose();
+    }
+
+    private void OpenCardHistory(Guid cardId)
+    {
+        _selectedCardForHistory = _summary.Cards.FirstOrDefault(c => c.Id == cardId);
+        if (_selectedCardForHistory != null)
+        {
+            _cardHistoryTransactions = _transactions.Where(t => t.CreditCardId == cardId).ToList();
+        }
+        StateHasChanged();
+    }
+}

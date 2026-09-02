@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <title>CRManager</title>
+    <base href="/" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="_content/CRManager.Shared/css/crmanager-ui.css" />
+    <link rel="stylesheet" href="app.css" />
+</head>
+
+<body class="bg-slate-950 text-slate-100 min-h-screen">
+    <div class="status-bar-safe-area"></div>
+
+    <div id="app">
+        <div class="flex items-center justify-center min-h-screen text-slate-400">
+            <div class="flex flex-col items-center gap-3">
+                <div class="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+                <div class="text-sm font-medium tracking-wide">Loading CRManager...</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="blazor-error-ui" class="hidden">
+        An unhandled error has occurred.
+        <a href="" class="reload">Reload</a>
+        <a class="dismiss">🗙</a>
+    </div>
+
+    <script src="_framework/blazor.webview.js" autostart="false"></script>
+</body>
+</html>

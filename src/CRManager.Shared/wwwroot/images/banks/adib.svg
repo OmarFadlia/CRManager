@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 80" width="100%" height="100%">
+  <rect width="200" height="80" rx="12" fill="#007D8A"/>
+  <!-- ADIB Gold Crescent Motif -->
+  <g transform="translate(18, 14)">
+    <path d="M34 8 C20 10 12 24 16 38 C20 48 32 52 42 46 C30 48 22 36 24 24 C26 16 32 10 38 8 Z" fill="#D4AF37"/>
+    <circle cx="40" cy="16" r="3.5" fill="#FFFFFF"/>
+  </g>
+  <text x="76" y="52" fill="#FFFFFF" font-family="'Helvetica Neue', Arial, sans-serif" font-size="34" font-weight="900" letter-spacing="1">ADIB</text>
+</svg>

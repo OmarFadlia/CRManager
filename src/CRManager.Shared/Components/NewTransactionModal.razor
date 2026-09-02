@@ -1,0 +1,211 @@
+@using System.Globalization
+@using CRManager.Shared
+@using CRManager.Shared.DTOs
+
+@if (IsOpen)
+{
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4" dir="rtl">
+        <div class="glass-card w-full max-w-lg p-6 rounded-2xl space-y-4 border border-slate-700 shadow-2xl bg-gradient-to-b from-slate-900 to-slate-950">
+            <div class="flex justify-between items-center pb-3 border-b border-slate-800">
+                <div class="flex items-center gap-2">
+                    <span class="text-xl">💸</span>
+                    <h3 class="text-xl font-bold text-slate-100">تسجيل معاملة جديدة</h3>
+                </div>
+                <button @onclick="Close" class="text-slate-400 hover:text-white text-lg">✕</button>
+            </div>
+
+            <EditForm Model="Model" OnValidSubmit="HandleSubmit">
+                <DataAnnotationsValidator />
+
+                <div class="space-y-4 text-sm">
+                    <!-- Transaction Type Selector -->
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1 text-right">نوع المعاملة</label>
+                        <div class="grid grid-cols-2 gap-2 bg-slate-950 p-1 rounded-xl border border-slate-800">
+                            <button type="button" @onclick="() => SetType(TransactionType.Purchase)" 
+                                    class="py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 @(Model.Type == TransactionType.Purchase ? "bg-amber-600 text-white shadow" : "text-slate-400 hover:text-slate-200")">
+                                <span>➕</span> شراء (مصروف)
+                            </button>
+                            <button type="button" @onclick="() => SetType(TransactionType.Payment)" 
+                                    class="py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 @(Model.Type == TransactionType.Payment ? "bg-emerald-600 text-white shadow" : "text-slate-400 hover:text-slate-200")">
+                                <span>➖</span> دفع (سداد دين)
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Select Card -->
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1 text-right">اختر بطاقة ائتمان</label>
+                        <select @bind="SelectedCardIdString" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-slate-100 focus:outline-none focus:border-blue-500">
+                            @foreach (var card in Cards)
+                            {
+                                <option value="@card.Id.ToString()">
+                                    @card.BankName (المتاح: @Math.Max(0, card.AvailableCredit).ToString("N0") ج.م | الرصيد: @card.TotalDebt.ToString("N0") ج.م)
+                                </option>
+                            }
+                        </select>
+                    </div>
+
+                    <!-- Selected Card Details Badge -->
+                    @if (SelectedCard != null)
+                    {
+                        <div class="p-3 rounded-xl bg-slate-950 border border-slate-800 flex justify-between items-center text-xs">
+                            <div class="flex items-center gap-2">
+                                <BankBadge BankName="@SelectedCard.BankName" Size="sm" />
+                                <div class="text-right">
+                                    <span class="text-slate-400">حد البطاقة:</span>
+                                    <span class="font-bold text-slate-200 ml-1 font-mono">@SelectedCard.CreditLimit.ToString("N0") ج.م</span>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <span class="text-slate-400">@(Model.Type == TransactionType.Purchase ? "المتاح:" : "الرصيد الحالي:")</span>
+                                <span class="font-bold @(Model.Type == TransactionType.Purchase ? (SelectedCard.AvailableCredit > 0 ? "text-emerald-400" : "text-rose-400") : "text-amber-400") ml-1 font-mono">
+                                    @(Model.Type == TransactionType.Purchase ? SelectedCard.AvailableCredit.ToString("N2") : SelectedCard.TotalDebt.ToString("N2")) ج.م
+                                </span>
+                            </div>
+                        </div>
+                    }
+
+                    <!-- Amount Input -->
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1 text-right">المبلغ (ج.م)</label>
+                        <InputNumber @bind-Value="Model.Amount" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-slate-100 focus:outline-none focus:border-blue-500 font-mono" placeholder="5000" min="0.01" required />
+                    </div>
+
+                    <!-- Over-Limit Warning Box for Purchases -->
+                    @if (Model.Type == TransactionType.Purchase && IsPurchaseOverLimit)
+                    {
+                        <div class="p-3 bg-rose-950/70 border border-rose-800/80 rounded-xl text-rose-300 text-xs space-y-2 text-right">
+                            <div class="flex items-center gap-1.5 font-bold justify-end">
+                                <span>⚠️</span>
+                                <span>يتجاوز رصيد البطاقة المتاح</span>
+                            </div>
+                            <p class="text-[11px] text-rose-200/90 leading-relaxed">
+                                المبلغ يتجاوز الرصيد المتاح بمقدار <strong class="font-mono">@OverLimitAmount.ToString("N2") ج.م</strong>.
+                            </p>
+                            <label class="flex items-center gap-2 pt-1 cursor-pointer text-slate-200 justify-end">
+                                <input type="checkbox" @bind="Model.AllowOverLimit" class="rounded border-slate-700 bg-slate-900 text-blue-600 focus:ring-blue-500" />
+                                <span class="text-[11px] font-semibold">السماح بتجاوز الحد (فوائد أو رسوم أو كشف زائد)</span>
+                            </label>
+                        </div>
+                    }
+
+                    <!-- Over-Payment Warning Box for Payments -->
+                    @if (Model.Type == TransactionType.Payment && IsPaymentOverDebt)
+                    {
+                        <div class="p-3 bg-rose-950/70 border border-rose-800/80 rounded-xl text-rose-300 text-xs text-right">
+                            <span class="font-bold">⚠️ سداد زائد:</span>
+                            &nbsp;المبلغ أكبر من إجمالي الدين غير المسدد بقيمة @(SelectedCard?.TotalDebt.ToString("N2") ?? "0.00") ج.م.
+                        </div>
+                    }
+
+                    <!-- Transaction Date -->
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1 text-right">تاريخ المعاملة</label>
+                        <InputDate @bind-Value="Model.Date" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-slate-100 focus:outline-none focus:border-blue-500" required />
+                        <div class="text-[11px] text-amber-400 mt-1 text-right">
+                            📅 موعد الاستحقاق: <strong>@(SelectedCard != null ? TransactionDto.CalculateSettlementDate(Model.Date, SelectedCard.SettlementDay).ToString("yyyy-MM-dd") : "اختر بطاقة")</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex justify-end gap-3 mt-6 pt-3 border-t border-slate-800">
+                    <button type="button" @onclick="Close" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-semibold rounded-lg">إلغاء</button>
+                    <button type="submit" disabled="@(!CanSubmit)" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-500 text-white text-sm font-semibold rounded-lg shadow-lg transition-all">
+                        @(Model.Type == TransactionType.Payment ? "تسجيل سداد" : "تسجيل شراء")
+                    </button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
+    [Parameter] public List<CreditCardSummaryDto> Cards { get; set; } = new();
+    [Parameter] public Guid? PreselectedCardId { get; set; }
+    [Parameter] public EventCallback<CreateTransactionRequest> OnTransactionSaved { get; set; }
+
+    // ensure the model has today's date immediately
+    private CreateTransactionRequest Model { get; set; } = new CreateTransactionRequest { Date = DateTime.Today };
+
+    private void SetType(TransactionType type)
+    {
+        Model.Type = type;
+        Model.AllowOverLimit = false;
+    }
+
+    private string SelectedCardIdString
+    {
+        get => Model.CreditCardId.ToString();
+        set
+        {
+            if (Guid.TryParse(value, out var guid))
+            {
+                Model.CreditCardId = guid;
+            }
+        }
+    }
+
+    private CreditCardSummaryDto? SelectedCard => Cards.FirstOrDefault(c => c.Id == Model.CreditCardId);
+
+    private bool IsPurchaseOverLimit =>
+        SelectedCard != null && Model.Amount > 0 && Model.Amount > SelectedCard.AvailableCredit;
+
+    private decimal OverLimitAmount =>
+        SelectedCard == null ? 0 : Math.Max(0, Model.Amount - Math.Max(0, SelectedCard.AvailableCredit));
+
+    private bool IsPaymentOverDebt =>
+        SelectedCard != null && Model.Amount > 0 && Model.Amount > SelectedCard.TotalDebt;
+
+    private bool CanSubmit
+    {
+        get
+        {
+            if (SelectedCard == null || Model.Amount <= 0) return false;
+            if (Model.Type == TransactionType.Purchase && IsPurchaseOverLimit && !Model.AllowOverLimit) return false;
+            if (Model.Type == TransactionType.Payment && (SelectedCard.TotalDebt <= 0 || IsPaymentOverDebt)) return false;
+            return true;
+        }
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (IsOpen && Cards.Count > 0)
+        {
+            var initialCardId = (PreselectedCardId.HasValue && Cards.Any(c => c.Id == PreselectedCardId.Value))
+                ? PreselectedCardId.Value
+                : Cards[0].Id;
+
+            // reinitialize model when opening so the date (and default card) are set immediately
+            Model = new CreateTransactionRequest
+            {
+                CreditCardId = initialCardId,
+                Date = DateTime.Today,
+                Type = TransactionType.Purchase,
+                AllowOverLimit = false
+            };
+        }
+    }
+
+    private async Task Close()
+    {
+        IsOpen = false;
+        Model = new CreateTransactionRequest();
+        await IsOpenChanged.InvokeAsync(false);
+    }
+
+    private async Task HandleSubmit()
+    {
+        if (!CanSubmit) return;
+
+        if (Model.CreditCardId == Guid.Empty && Cards.Count > 0)
+        {
+            Model.CreditCardId = Cards[0].Id;
+        }
+
+        await OnTransactionSaved.InvokeAsync(Model);
+        await Close();
+    }
+}

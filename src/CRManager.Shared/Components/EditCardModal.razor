@@ -1,0 +1,116 @@
+@using CRManager.Shared.DTOs
+
+@if (IsOpen && Card != null)
+{
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4" dir="rtl">
+        <div class="glass-card w-full max-w-lg p-6 rounded-2xl space-y-4 border border-slate-700 shadow-2xl bg-gradient-to-b from-slate-900 to-slate-950">
+            <div class="flex justify-between items-center pb-3 border-b border-slate-800">
+                <div class="flex items-center gap-2">
+                    <span class="text-xl">✏️</span>
+                    <h3 class="text-xl font-bold text-slate-100">تعديل بيانات البطاقة</h3>
+                </div>
+                <button @onclick="Close" class="text-slate-400 hover:text-white text-lg">✕</button>
+            </div>
+
+            <!-- Quick Pick Popular Banks -->
+            <div>
+                <label class="block text-xs font-semibold text-slate-300 mb-2 text-right">اختر البنك</label>
+                <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2 pb-2 max-h-48 overflow-y-auto pr-1">
+                    @foreach (var bank in _popularBanks)
+                    {
+                        <button type="button" @onclick="() => SelectBank(bank)" 
+                                class="p-1.5 rounded-xl border transition-all flex flex-col items-center justify-center gap-1 min-h-[58px] overflow-hidden @(Model.BankName.Equals(bank, StringComparison.OrdinalIgnoreCase) ? "bg-amber-600/30 border-amber-500 shadow-md scale-[1.02]" : "bg-slate-900/80 border-slate-800 hover:border-slate-700")">
+                            <BankBadge BankName="@bank" Size="sm" />
+                            <span class="text-[10px] font-bold text-slate-200 text-center truncate max-w-full px-0.5">@bank</span>
+                        </button>
+                    }
+                </div>
+            </div>
+
+            <EditForm Model="Model" OnValidSubmit="HandleSubmit">
+                <DataAnnotationsValidator />
+
+                <div class="space-y-4 text-sm pt-2 border-t border-slate-800/80">
+                    <!-- Bank Name Input with Live Logo Preview & Datalist Dropdown -->
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1 text-right">اسم البنك / الإصدار المخصص</label>
+                        <div class="flex items-center gap-2">
+                            <BankBadge BankName="@Model.BankName" Size="md" />
+                            <InputText list="editPopularBanksList" @bind-Value="Model.BankName" class="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-slate-100 focus:outline-none focus:border-amber-500" placeholder="مثال: CIB، NBE، QNB، SAIB، ABC، Midbank، بنك مصر" required />
+                            <datalist id="editPopularBanksList">
+                                @foreach (var bank in _popularBanks)
+                                {
+                                    <option value="@bank" />
+                                }
+                            </datalist>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1 text-right">حد الائتمان (ج.م)</label>
+                        <InputNumber @bind-Value="Model.CreditLimit" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-slate-100 focus:outline-none focus:border-amber-500 font-mono" placeholder="50000" min="1" required />
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1 text-right">يوم تاريخ الاستحقاق (1-31)</label>
+                        <InputNumber @bind-Value="Model.SettlementDay" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-slate-100 focus:outline-none focus:border-amber-500 font-mono" placeholder="25" min="1" max="31" required />
+                        <small class="text-slate-400 text-right block mt-1">اختر اليوم من الشهر الذي سيتم حساب موعد الاستحقاق بناءً عليه</small>
+                    </div>
+                </div>
+
+                <div class="flex justify-end gap-3 mt-6 pt-3 border-t border-slate-800">
+                    <button type="button" @onclick="Close" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-semibold rounded-lg">إلغاء</button>
+                    <button type="submit" class="px-5 py-2 bg-amber-600 hover:bg-amber-500 text-white text-sm font-semibold rounded-lg shadow-lg transition-all">حفظ التعديلات</button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
+    [Parameter] public CreditCardSummaryDto? Card { get; set; }
+    [Parameter] public EventCallback<(Guid Id, UpdateCreditCardRequest Request)> OnCardUpdated { get; set; }
+
+    private UpdateCreditCardRequest Model { get; set; } = new();
+
+    private readonly string[] _popularBanks = ["CIB", "NBE", "QNB", "HSBC", "Banque Misr", "Banque du Caire", "Alexbank", "HDB", "Emirates NBD", "FAB", "ADIB", "SAIB", "ABC", "Midbank"];
+
+    private void SelectBank(string bank)
+    {
+        Model.BankName = bank;
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (IsOpen && Card != null)
+        {
+            Model = new UpdateCreditCardRequest
+            {
+                BankName = Card.BankName,
+                CreditLimit = Card.CreditLimit,
+                SettlementDay = Card.SettlementDay
+            };
+        }
+    }
+
+    private async Task Close()
+    {
+        IsOpen = false;
+        await IsOpenChanged.InvokeAsync(false);
+    }
+
+    private async Task HandleSubmit()
+    {
+        if (Card == null) return;
+
+        if (string.IsNullOrWhiteSpace(Model.BankName))
+        {
+            Model.BankName = "CIB";
+        }
+        await OnCardUpdated.InvokeAsync((Card.Id, Model));
+        await Close();
+    }
+}
+

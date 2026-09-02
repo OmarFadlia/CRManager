@@ -1,0 +1,54 @@
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Build output
+**/bin/
+**/obj/
+
+# Visual Studio Code
+.vscode/
+
+# Rider
+.idea/
+
+# NuGet
+*.nupkg
+*.snupkg
+
+# Logs
+*.log
+
+# ASP.NET development
+appsettings.Local.json
+
+# Local databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Android signing
+*.keystore
+*.jks
+*.aab
+*.apk
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# User-specific publish files
+publish/
+artifacts/
+
+# Python
+__pycache__/
+*.py[cod]
+
+# OS
+.DS_Store
+Thumbs.db

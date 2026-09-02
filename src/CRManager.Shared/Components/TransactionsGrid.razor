@@ -1,0 +1,148 @@
+@using CRManager.Shared.DTOs
+@using CRManager.Shared.Components
+
+<div class="space-y-4" dir="rtl">
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+        <div class="flex items-center gap-3">
+            <h2 class="text-xl font-bold text-slate-100 flex items-center gap-2">
+                <span>💸 دفتر المعاملات</span>
+                <span class="text-xs bg-emerald-600/30 text-emerald-400 px-2.5 py-0.5 rounded-full border border-emerald-500/40">@FilteredTransactions.Count مدخل</span>
+            </h2>
+
+            <!-- Card Filter Dropdown -->
+            <select @bind="_selectedCardFilter" class="bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded-xl px-3 py-1.5 focus:outline-none focus:border-blue-500">
+                <option value="">كل البطاقات</option>
+                @foreach (var bank in Transactions.Select(t => t.BankName).Where(b => !string.IsNullOrEmpty(b)).Distinct().OrderBy(b => b))
+                {
+                    <option value="@bank">@bank</option>
+                }
+            </select>
+        </div>
+
+        <button @onclick="OnNewTransactionClick" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl shadow-lg transition-all flex items-center gap-1.5">
+            <span>+ تسجيل معاملة</span>
+        </button>
+    </div>
+
+    @if (FilteredTransactions.Count == 0)
+    {
+        <div class="glass-card p-8 rounded-2xl text-center text-slate-400 space-y-2">
+            <div class="text-3xl">🧾</div>
+            <div class="font-bold text-slate-300">لا توجد معاملات</div>
+            <p class="text-xs text-slate-400">سجل شراء أو سداد باستخدام الزر أعلاه.</p>
+        </div>
+    }
+    else
+    {
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <!-- Purchases -->
+            <div class="glass-card rounded-2xl overflow-hidden border border-slate-800 shadow-xl">
+                <div class="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
+                    <div>
+                        <div class="text-sm font-bold text-slate-100">🛒 مشتريات</div>
+                        <div class="text-xs text-slate-400">@Purchases.Count مدخل • الإجمالي: <span class="font-mono text-amber-300 font-semibold">@PurchasesTotal.ToString("N2") ج.م</span></div>
+                    </div>
+                    <div class="text-xs text-slate-400">عرض أحدث 50</div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-right text-xs text-slate-300">
+                        <thead class="bg-slate-900/90 text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-800">
+                            <tr>
+                                <th class="p-3.5">التاريخ</th>
+                                <th class="p-3.5 text-center">البطاقة</th>
+                                <th class="p-3.5 text-center">المبلغ</th>
+                                <th class="p-3.5">موعد الاستحقاق</th>
+                                <th class="p-3.5 text-center">الإجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-800/80">
+                            @foreach (var tx in Purchases.Take(50))
+                            {
+                                <tr class="hover:bg-slate-800/40 transition-colors">
+                                    <td class="p-3.5 font-mono text-slate-300 text-[11px]">@tx.Date.ToString("yyyy-MM-dd")</td>
+                                    <td class="p-3.5">
+                                        <div class="flex items-center gap-2 justify-between">
+                                            <BankBadge BankName="@tx.BankName" Size="sm" />
+                                            <span class="font-semibold text-slate-200">@tx.BankName</span>
+                                        </div>
+                                    </td>
+                                    <td class="p-3.5 text-center font-mono font-bold text-rose-400">-@tx.Amount.ToString("N2") ج.م</td>
+                                    <td class="p-3.5 font-mono text-[11px] text-slate-400"><span>📅 @tx.SettlementDate.ToString("yyyy-MM-dd")</span></td>
+                                    <td class="p-3.5 text-center">
+                                        <div class="flex items-center justify-center gap-1.5">
+                                            <button @onclick="() => OnDeleteTransaction.InvokeAsync(tx.Id)" title="حذف المعاملة" class="p-1.5 bg-slate-800 hover:bg-rose-600 text-slate-300 hover:text-white rounded-lg transition-all text-xs">🗑️</button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Payments -->
+            <div class="glass-card rounded-2xl overflow-hidden border border-slate-800 shadow-xl">
+                <div class="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
+                    <div>
+                        <div class="text-sm font-bold text-slate-100">💰 سداد</div>
+                        <div class="text-xs text-slate-400">@Payments.Count مدخل • الإجمالي: <span class="font-mono text-emerald-300 font-semibold">@PaymentsTotal.ToString("N2") ج.م</span></div>
+                    </div>
+                    <div class="text-xs text-slate-400">عرض أحدث 50</div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-right text-xs text-slate-300">
+                        <thead class="bg-slate-900/90 text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-800">
+                            <tr>
+                                <th class="p-3.5">التاريخ</th>
+                                <th class="p-3.5 text-center">البطاقة</th>
+                                <th class="p-3.5 text-center">المبلغ</th>
+                                <th class="p-3.5 text-center">الإجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-800/80">
+                            @foreach (var tx in Payments.Take(50))
+                            {
+                                <tr class="hover:bg-slate-800/40 transition-colors">
+                                    <td class="p-3.5 font-mono text-slate-300 text-[11px]">@tx.Date.ToString("yyyy-MM-dd")</td>
+                                    <td class="p-3.5">
+                                        <div class="flex items-center gap-2 justify-between">
+                                            <BankBadge BankName="@tx.BankName" Size="sm" />
+                                            <span class="font-semibold text-slate-200">@tx.BankName</span>
+                                        </div>
+                                    </td>
+                                    <td class="p-3.5 text-left font-mono font-bold text-emerald-400">+@tx.Amount.ToString("N2") ج.م</td>
+                                    <td class="p-3.5 text-center">
+                                        <div class="flex items-center justify-center gap-1.5">
+                                            <button @onclick="() => OnDeleteTransaction.InvokeAsync(tx.Id)" title="حذف المعاملة" class="p-1.5 bg-slate-800 hover:bg-rose-600 text-slate-300 hover:text-white rounded-lg transition-all text-xs">🗑️</button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public List<TransactionDto> Transactions { get; set; } = new();
+    [Parameter] public EventCallback OnNewTransactionClick { get; set; }
+    [Parameter] public EventCallback<Guid> OnDeleteTransaction { get; set; }
+
+    private string _selectedCardFilter = string.Empty;
+
+    private List<TransactionDto> FilteredTransactions =>
+        string.IsNullOrWhiteSpace(_selectedCardFilter)
+            ? Transactions.OrderByDescending(t => t.Date).ToList()
+            : Transactions.Where(t => t.BankName.Equals(_selectedCardFilter, StringComparison.OrdinalIgnoreCase)).OrderByDescending(t => t.Date).ToList();
+
+    private List<TransactionDto> Purchases => FilteredTransactions.Where(t => t.Type == TransactionType.Purchase).ToList();
+    private List<TransactionDto> Payments => FilteredTransactions.Where(t => t.Type == TransactionType.Payment).ToList();
+
+    private decimal PurchasesTotal => Purchases.Sum(t => t.Amount);
+    private decimal PaymentsTotal => Payments.Sum(t => t.Amount);
+}

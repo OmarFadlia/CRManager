@@ -1,0 +1,119 @@
+@using CRManager.Shared.DTOs
+
+<div @onclick="() => OnViewHistory.InvokeAsync(Card.Id)" 
+     class="glass-card p-4 sm:p-5 rounded-2xl relative overflow-hidden transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl cursor-pointer select-none shadow-xl border @(Card.UtilizationPercentage > 100 ? "border-rose-600/80 shadow-rose-950/40 hover:border-rose-500" : "border-slate-700/60 hover:border-blue-500/60") bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950" 
+     dir="rtl"
+     title="انقر لعرض سجل المعاملات"
+     role="button"
+     tabindex="0">
+    
+    <!-- Metallic shine overlay -->
+    <div class="absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-transparent pointer-events-none"></div>
+
+    <div class="flex justify-between items-start gap-2">
+        <div class="flex items-center gap-2.5 min-w-0 flex-1">
+            <BankBadge BankName="@Card.BankName" Size="md" />
+            <div class="text-right min-w-0 flex-1">
+                <span class="text-[10px] uppercase tracking-wider text-indigo-300 font-semibold opacity-90 block">بطاقة البنك</span>
+                <div class="flex items-center gap-1.5 min-w-0 flex-wrap">
+                    <h3 class="text-lg sm:text-xl font-black text-white tracking-wide drop-shadow-sm truncate" title="@Card.BankName">@Card.BankName</h3>
+                    @if (!string.IsNullOrEmpty(ArabicBankName) && !string.Equals(ArabicBankName, Card.BankName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        <span class="text-[10px] font-bold text-indigo-200 bg-indigo-950/90 border border-indigo-500/40 px-2 py-0.5 rounded-md shadow-sm whitespace-nowrap">
+                            @ArabicBankName
+                        </span>
+                    }
+                </div>
+            </div>
+        </div>
+        <div class="text-left shrink-0">
+            @if (Card.UtilizationPercentage > 100)
+            {
+                <span class="text-[10px] font-black text-rose-300 tracking-wider uppercase bg-rose-950/80 px-2 py-0.5 rounded-full border border-rose-600/70 shadow-sm animate-pulse whitespace-nowrap inline-block">
+                    ⚠️ @Card.UtilizationPercentage% تجاوز الحد
+                </span>
+            }
+            else
+            {
+                <span class="text-[10px] sm:text-[11px] font-bold text-slate-200 tracking-wider uppercase bg-black/40 px-2.5 py-0.5 rounded-full border border-white/10 whitespace-nowrap inline-block">
+                    @Card.UtilizationPercentage% نسبة الاستخدام
+                </span>
+            }
+        </div>
+    </div>
+
+    <!-- Gold EMV Chip Visual, Settlement Day & Available Credit -->
+    <div class="my-3 flex items-center justify-between">
+        <div class="w-9 h-6 bg-gradient-to-br from-amber-200 via-amber-400 to-amber-600 rounded border border-amber-300/60 shadow-inner flex items-center justify-center">
+            <div class="w-full h-[1px] bg-amber-800/40"></div>
+        </div>
+        <div class="flex items-center gap-3 sm:gap-4 text-left">
+            <div class="text-right border-l border-slate-700/60 pl-3 sm:pl-4">
+                <div class="text-[10px] text-slate-400 uppercase font-semibold">يوم التسوية</div>
+                <div class="font-bold text-amber-300 text-xs sm:text-sm font-mono">يوم @Card.SettlementDay</div>
+            </div>
+            <div class="text-left">
+                <div class="text-[10px] text-slate-400 uppercase font-semibold text-center">الرصيد المتاح</div>
+                @if (Card.AvailableCredit < 0)
+                {
+                    <div class="font-bold text-rose-400 text-sm font-mono">0.00 ج.م</div>
+                    <div class="text-[9px] text-rose-300/80 font-mono">(-@Math.Abs(Card.AvailableCredit).ToString("N0") ج.م تجاوز الحد)</div>
+                }
+                else
+                {
+                    <div class="font-bold text-emerald-400 text-sm sm:text-base font-mono">@Card.AvailableCredit.ToString("N2") ج.م</div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- Debt & Limit Info -->
+    <div class="grid grid-cols-2 gap-2 bg-black/30 p-2 rounded-xl border border-white/5 text-xs mb-2.5">
+        <div class="text-right">
+            <div class="text-slate-400 text-[9px] uppercase font-semibold">إجمالي الدين (غير مسدد)</div>
+            <div class="font-bold text-rose-400 font-mono text-xs sm:text-sm">@Card.TotalDebt.ToString("N2") ج.م</div>
+        </div>
+        <div class="text-left">
+            <div class="text-slate-400 text-[9px] uppercase font-semibold">حد الائتمان</div>
+            <div class="font-bold text-white font-mono text-xs sm:text-sm">@Card.CreditLimit.ToString("N2") ج.م</div>
+        </div>
+    </div>
+
+    <!-- Debt & Utilization Progress Bar -->
+    <div class="space-y-1.5">
+        <div class="w-full h-1.5 bg-black/50 rounded-full overflow-hidden p-0.5 border border-white/10">
+            <div class="h-full rounded-full transition-all duration-500 @GetUtilizationColorClass(Card.UtilizationPercentage)"
+                 style="width: @(Math.Min(Card.UtilizationPercentage, 100))%"></div>
+        </div>
+
+        <div class="flex justify-between items-center text-[11px] text-slate-300 font-medium pt-0.5 gap-2">
+            <span class="text-right whitespace-nowrap">المتاح: <strong class="text-emerald-400 font-mono">@Card.AvailableCredit.ToString("N0") ج.م</strong></span>
+            @if (Card.NextSettlementDate.HasValue && Card.NextSettlementAmount > 0)
+            {
+                <span class="text-amber-300 font-bold bg-amber-950/70 px-2 py-0.5 rounded border border-amber-700/60 text-[10px] font-mono shadow-sm text-left whitespace-nowrap">
+                    📅 الاستحقاق: @Card.NextSettlementDate.Value.ToString("yyyy-MM-dd") (@Card.NextSettlementAmount.ToString("N0") ج.م)
+                </span>
+            }
+            else
+            {
+                <span class="text-emerald-400 font-medium bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-800/50 text-[10px] whitespace-nowrap">
+                    ✓ تم التسوية
+                </span>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public CreditCardSummaryDto Card { get; set; } = new();
+    [Parameter] public EventCallback<Guid> OnViewHistory { get; set; }
+
+    private string? ArabicBankName => BankHelper.GetArabicName(Card.BankName);
+
+    private static string GetUtilizationColorClass(decimal utilization)
+    {
+        if (utilization <= 30) return "bg-gradient-to-r from-emerald-400 to-teal-500";
+        if (utilization <= 70) return "bg-gradient-to-r from-amber-400 to-amber-500";
+        return "bg-gradient-to-r from-rose-500 to-red-600 animate-pulse";
+    }
+}

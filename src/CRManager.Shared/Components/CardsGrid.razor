@@ -1,0 +1,122 @@
+@using CRManager.Shared.DTOs
+@using CRManager.Shared.Components
+
+<div class="space-y-4" dir="rtl">
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+        <h2 class="text-xl font-bold text-slate-100 flex items-center gap-2">
+            <span>💳 إدارة بطاقات الائتمان</span>
+            <span class="text-xs bg-blue-600/30 text-blue-400 px-2.5 py-0.5 rounded-full border border-blue-500/40">@Cards.Count بطاقة</span>
+        </h2>
+        <button @onclick="OnNewCardClick" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl shadow-lg transition-all flex items-center gap-1.5">
+            <span>+ إضافة بطاقة جديدة</span>
+        </button>
+    </div>
+
+    @if (Cards.Count == 0)
+    {
+        <div class="glass-card p-8 rounded-2xl text-center text-slate-400 space-y-2">
+            <div class="text-3xl">💳</div>
+            <div class="font-bold text-slate-300">لا توجد بطاقات مسجلة بعد</div>
+            <p class="text-xs text-slate-400">أضف بطاقتك الأولى باستخدام الزر أعلاه.</p>
+        </div>
+    }
+    else
+    {
+        <div class="glass-card rounded-2xl overflow-hidden border border-slate-800 shadow-xl">
+            <div class="overflow-x-auto">
+                <table class="w-full text-right text-xs text-slate-300">
+                    <thead class="bg-slate-900/90 text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-800">
+                        <tr>
+                            <th class="p-3.5">المصدر / البنك</th>
+                            <th class="p-3.5 text-left">حد الائتمان</th>
+                            <th class="p-3.5 text-left">الدين غير المسدد</th>
+                            <th class="p-3.5 text-left">الرصيد المتاح</th>
+                            <th class="p-3.5 text-center">نسبة الاستخدام</th>
+                            <th class="p-3.5">الاستحقاق التالي</th>
+                            <th class="p-3.5 text-center">الإجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-800/80">
+                        @foreach (var card in Cards)
+                        {
+                            <tr class="hover:bg-slate-800/40 transition-colors">
+                                <td class="p-3.5">
+                                    <div class="flex items-center gap-2.5 justify-between">
+                                        <BankBadge BankName="@card.BankName" Size="sm" />
+                                        <span class="font-bold text-slate-100">@card.BankName</span>
+                                    </div>
+                                </td>
+                                <td class="p-3.5 text-left font-mono font-semibold text-slate-200">
+                                    @card.CreditLimit.ToString("N2") ج.م
+                                </td>
+                                <td class="p-3.5 text-left font-mono font-bold @(card.TotalDebt > 0 ? "text-rose-400" : "text-slate-400")">
+                                    @card.TotalDebt.ToString("N2") ج.م
+                                </td>
+                                <td class="p-3.5 text-left font-mono font-bold @(card.AvailableCredit < 0 ? "text-rose-400" : "text-emerald-400")">
+                                    @card.AvailableCredit.ToString("N2") ج.م
+                                </td>
+                                <td class="p-3.5">
+                                    <div class="flex items-center gap-2 justify-center">
+                                        <div class="w-16 h-2 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
+                                            <div class="h-full rounded-full @(card.UtilizationPercentage > 100 ? "bg-rose-600 animate-pulse" : (card.UtilizationPercentage > 70 ? "bg-amber-500" : "bg-emerald-500"))"
+                                                 style="width: @(Math.Min(card.UtilizationPercentage, 100))%"></div>
+                                        </div>
+                                        <span class="font-mono text-[10px] font-semibold @(card.UtilizationPercentage > 100 ? "text-rose-400 font-bold" : "text-slate-300")">
+                                            @card.UtilizationPercentage%
+                                        </span>
+                                    </div>
+                                </td>
+                                <td class="p-3.5">
+                                    @if (card.NextSettlementDate.HasValue && card.NextSettlementAmount > 0)
+                                    {
+                                        <div class="flex flex-col gap-1">
+                                            <div class="inline-flex items-center gap-1 bg-amber-950/70 text-amber-300 border border-amber-800/60 px-2 py-0.5 rounded text-[11px] font-mono shadow-sm">
+                                                <span>📅</span>
+                                                <span>موعد الاستحقاق: @card.NextSettlementDate.Value.ToString("yyyy-MM-dd") (@card.NextSettlementAmount.ToString("N2") ج.م)</span>
+                                            </div>
+                                            <span class="text-[10px] text-slate-400 font-mono">يوم التسوية: يوم @card.SettlementDay</span>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <div class="flex flex-col gap-0.5">
+                                            <span class="text-emerald-400 text-[11px] font-medium">✓ تم التسوية</span>
+                                            <span class="text-[10px] text-slate-400 font-mono">يوم التسوية: يوم @card.SettlementDay</span>
+                                        </div>
+                                    }
+                                </td>
+                                <td class="p-3.5 text-center">
+                                    <div class="flex items-center justify-center gap-1.5">
+                                        <button @onclick="() => OnViewHistory.InvokeAsync(card.Id)" 
+                                                title="عرض سجل المعاملات"
+                                                class="p-1.5 bg-slate-800 hover:bg-blue-600 text-slate-300 hover:text-white rounded-lg transition-all text-xs">
+                                            📜 السجل
+                                        </button>
+                                        <button @onclick="() => OnEditCard.InvokeAsync(card)" 
+                                                title="تعديل بيانات البطاقة"
+                                                class="p-1.5 bg-slate-800 hover:bg-amber-600 text-slate-300 hover:text-white rounded-lg transition-all text-xs">
+                                            ✏️ تعديل
+                                        </button>
+                                        <button @onclick="() => OnDeleteCard.InvokeAsync(card.Id)" 
+                                                title="حذف البطاقة"
+                                                class="p-1.5 bg-slate-800 hover:bg-rose-600 text-slate-300 hover:text-white rounded-lg transition-all text-xs">
+                                            🗑️
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public List<CreditCardSummaryDto> Cards { get; set; } = new();
+    [Parameter] public EventCallback OnNewCardClick { get; set; }
+    [Parameter] public EventCallback<Guid> OnViewHistory { get; set; }
+    [Parameter] public EventCallback<CreditCardSummaryDto> OnEditCard { get; set; }
+    [Parameter] public EventCallback<Guid> OnDeleteCard { get; set; }
+}

@@ -1,0 +1,70 @@
+@code {
+    [Parameter] public string BankName { get; set; } = string.Empty;
+    [Parameter] public string Size { get; set; } = "md"; // "sm", "md", "lg"
+
+    private (string FileName, string DisplayName, string BgClass) GetBankInfo()
+    {
+        var clean = (BankName ?? "").Trim().ToLowerInvariant();
+        if (clean.Contains("cib"))
+            return ("cib.svg", "Commercial International Bank (CIB)", "bg-white");
+        if (clean.Contains("nbe") || clean.Contains("ahli") || clean.Contains("ahly"))
+            return ("nbe.svg", "National Bank of Egypt (NBE)", "bg-white");
+        if (clean.Contains("misr") || clean.Contains("bm"))
+            return ("misr.svg", "Banque Misr", "bg-white");
+        if (clean.Contains("qnb"))
+            return ("qnb.svg", "QNB Alahli", "bg-white");
+        if (clean.Contains("alex") || clean.Contains("alexbank"))
+            return ("alex.svg", "Alexbank", "bg-white");
+        if (clean.Contains("hsbc"))
+            return ("hsbc.svg", "HSBC Bank", "bg-white");
+        if (clean.Contains("hdb") || clean.Contains("housing") || clean.Contains("taameer") || clean.Contains("iskan"))
+            return ("hdb.png", "Housing & Development Bank (HDB)", "bg-white");
+        if (clean.Contains("caire") || clean.Contains("bdc"))
+            return ("bdc.svg", "Banque du Caire", "bg-white");
+        if (clean.Contains("fab"))
+            return ("fab.svg", "First Abu Dhabi Bank (FAB)", "bg-white");
+        if (clean.Contains("arab") || clean.Contains("arabbank"))
+            return ("arab.svg", "Arab Bank", "bg-white");
+        if (clean.Contains("nbd") || clean.Contains("emirates"))
+            return ("enbd.png", "Emirates NBD", "bg-white");
+        if (clean.Contains("adib"))
+            return ("adib.png", "Abu Dhabi Islamic Bank (ADIB)", "bg-white");
+        if (clean.Contains("saib") || clean.Contains("صائب") || clean.Contains("سيب"))
+            return ("saib.svg", "Société Arabe Internationale de Banque (saib)", "bg-white");
+        if (clean.Contains("abc") || clean.Contains("اي بي سي") || clean.Contains("المؤسسة العربية المصرفية"))
+            return ("abc.svg", "Bank ABC", "bg-white");
+        if (clean.Contains("midbank") || clean.Contains("mid bank") || clean.Contains("mid") || clean.Contains("ميد"))
+            return ("midbank.svg", "MIDBANK", "bg-white");
+
+        return ("default", BankName ?? "Custom Bank", "bg-slate-800");
+    }
+}
+
+@{
+    var (fileName, displayName, bgClass) = GetBankInfo();
+    var (containerClass, imgClass) = Size switch
+    {
+        "sm" => ("h-6 w-11 px-1 py-0.5 rounded-lg", "max-h-full max-w-full w-auto h-auto object-contain"),
+        "lg" => ("h-12 w-20 px-2 py-1 rounded-2xl shadow-xl", "max-h-full max-w-full w-auto h-auto object-contain"),
+        _ => ("h-8 w-14 px-1.5 py-0.5 rounded-xl shadow-md", "max-h-full max-w-full w-auto h-auto object-contain")
+    };
+}
+
+<div class="inline-flex items-center justify-center select-none shrink-0">
+    @if (fileName != "default")
+    {
+        <div class="@containerClass @bgClass border border-slate-200/80 flex items-center justify-center shadow-sm transition-transform hover:scale-105 overflow-hidden shrink-0" title="@displayName">
+            <img src="_content/CRManager.Shared/images/banks/@fileName" 
+                 alt="@displayName logo" 
+                 class="@imgClass select-none pointer-events-none" 
+                 loading="lazy" />
+        </div>
+    }
+    else
+    {
+        <!-- Monogram fallback for custom bank names -->
+        <div class="@containerClass bg-gradient-to-br from-slate-800 via-slate-900 to-indigo-950 border border-slate-700/80 flex items-center justify-center font-bold text-slate-200 font-mono text-xs tracking-wider shadow-sm transition-transform hover:scale-105 overflow-hidden shrink-0" title="@BankName">
+            <span class="truncate">@((BankName?.Length ?? 0) <= 3 ? BankName?.ToUpper() : BankName?[..2].ToUpper())</span>
+        </div>
+    }
+</div>

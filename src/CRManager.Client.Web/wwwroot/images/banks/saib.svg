@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 80" width="100%" height="100%">
+  <!-- SAIB Bank Emblem: Curved orange and navy wings -->
+  <g transform="translate(18, 12)">
+    <path d="M 28 6 C 16 14, 6 28, 8 42 C 10 52, 20 56, 30 52 C 18 50, 14 38, 18 28 C 22 18, 30 12, 38 8 Z" fill="#F37021"/>
+    <path d="M 32 14 C 24 22, 18 32, 20 42 C 22 48, 28 50, 34 46 C 26 44, 24 36, 26 30 C 28 24, 32 18, 38 16 Z" fill="#002D62"/>
+    <circle cx="40" cy="10" r="4" fill="#F37021"/>
+  </g>
+  <text x="76" y="52" fill="#002D62" font-family="'Helvetica Neue', 'Segoe UI', Arial, sans-serif" font-size="34" font-weight="900" letter-spacing="1">saib</text>
+</svg>
+

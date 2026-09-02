@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 80" width="100%" height="100%">
+  <!-- MIDBANK Growth Emblem: Modern Green Forward Arrow & Slate Base -->
+  <g transform="translate(14, 16)">
+    <polygon points="6,48 24,48 38,18 20,18" fill="#0F172A"/>
+    <polygon points="26,48 44,48 54,26 36,26" fill="#00A859"/>
+    <polygon points="40,20 54,20 58,10 44,10" fill="#22C55E"/>
+  </g>
+  <text x="78" y="50" fill="#0F172A" font-family="'Helvetica Neue', 'Segoe UI', Arial, sans-serif" font-size="23" font-weight="900" letter-spacing="0.5">MID<tspan fill="#00A859">BANK</tspan></text>
+</svg>
+
