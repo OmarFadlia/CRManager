@@ -1,2 +1,0 @@
-pwsh -ExecutionPolicy Bypass -File ".\Publish-Android.ps1"
-dotnet publish "src/CRManager.Client.Maui/CRManager.Client.Maui.csproj" -f net8.0-windows10.0.19041.0 -c Release -r win-x64 --self-contained true /p:WindowsPackageType=None

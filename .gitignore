@@ -52,3 +52,10 @@ __pycache__/
 # OS
 .DS_Store
 Thumbs.db
+
+# Local publishing files
+Publish-Android.ps1
+publishing commands.txt
+
+# Local configuration / secrets
+src/CRManager.Api/appsettings.json
