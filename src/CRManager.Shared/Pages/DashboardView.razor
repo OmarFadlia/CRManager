@@ -120,19 +120,54 @@
                     </div>
                 </div>
 
-                <!-- Right: Next Due Settlement -->
+                <!-- Right: Settlement Dues / Next Due Settlement -->
                 <div class="text-left">
-                    <div class="text-[10px] uppercase font-bold tracking-wider text-slate-400">الاستحقاق التالي</div>
-                    @if (DisplayNearestSettlementDate.HasValue && DisplayNextSettlementAmount > 0)
+                    @if (_selectedCardForHistory != null)
                     {
-                        <div class="text-xs sm:text-sm font-bold text-amber-300 font-mono flex items-center justify-start gap-1">
-                            <span>📅 @DisplayNearestSettlementDate.Value.ToString("yyyy-MM-dd")</span>
-                            <span class="text-amber-400">(@DisplayNextSettlementAmount.ToString("N0") ج.م)</span>
-                        </div>
+                        var cycles = GetSelectedCardSettlementCycles();
+                        <div class="text-[10px] uppercase font-bold tracking-wider text-slate-400">مواعيد الاستحقاق والمبالغ</div>
+                        @if (cycles.Count > 0)
+                        {
+                            <div class="flex flex-col gap-1 max-h-28 overflow-y-auto pr-1">
+                                @foreach (var cycle in cycles)
+                                {
+                                    <div class="text-[11px] sm:text-xs font-mono flex items-center justify-start gap-1 sm:gap-1.5 flex-wrap">
+                                        <span class="text-amber-300 font-bold whitespace-nowrap">📅 @cycle.SettlementDate.ToString("yyyy-MM-dd"):</span>
+                                        <span class="text-rose-400 font-semibold whitespace-nowrap">مشتريات @cycle.PurchasesAmount.ToString("N0") ج.م</span>
+                                        <span class="text-slate-500">|</span>
+                                        <span class="text-emerald-400 font-semibold whitespace-nowrap">سداد @cycle.PaymentsAmount.ToString("N0") ج.م</span>
+                                        <span class="text-slate-500">|</span>
+                                        @if (cycle.RemainingAmount > 0)
+                                        {
+                                            <span class="text-amber-400 font-bold whitespace-nowrap">(المتبقي @cycle.RemainingAmount.ToString("N0") ج.م)</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-emerald-400 font-bold whitespace-nowrap">(تمت التسوية ✓)</span>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="text-xs sm:text-sm font-bold text-emerald-400">✓ تم التسوية</div>
+                        }
                     }
                     else
                     {
-                        <div class="text-xs sm:text-sm font-bold text-emerald-400">✓ تم التسوية</div>
+                        <div class="text-[10px] uppercase font-bold tracking-wider text-slate-400">الاستحقاق التالي</div>
+                        @if (DisplayNearestSettlementDate.HasValue && DisplayNextSettlementAmount > 0)
+                        {
+                            <div class="text-xs sm:text-sm font-bold text-amber-300 font-mono flex items-center justify-start gap-1">
+                                <span>📅 @DisplayNearestSettlementDate.Value.ToString("yyyy-MM-dd")</span>
+                                <span class="text-amber-400">(@DisplayNextSettlementAmount.ToString("N0") ج.م)</span>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="text-xs sm:text-sm font-bold text-emerald-400">✓ تم التسوية</div>
+                        }
                     }
                 </div>
             </div>
@@ -506,5 +541,65 @@
             _cardHistoryTransactions = _transactions.Where(t => t.CreditCardId == cardId).ToList();
         }
         StateHasChanged();
+    }
+
+    private record CardSettlementCycle(
+        DateTime SettlementDate, 
+        decimal PurchasesAmount, 
+        decimal PaymentsAmount, 
+        decimal RemainingAmount
+    );
+
+    private List<CardSettlementCycle> GetSelectedCardSettlementCycles()
+    {
+        if (_selectedCardForHistory == null)
+        {
+            return new();
+        }
+
+        var settlementDay = _selectedCardForHistory.SettlementDay;
+
+        DateTime ResolveSettlementDate(TransactionDto t) =>
+            t.SettlementDate != default 
+                ? t.SettlementDate 
+                : TransactionDto.CalculateSettlementDate(t.Date, settlementDay);
+
+        var purchases = _cardHistoryTransactions
+            .Where(t => t.Type == TransactionType.Purchase)
+            .ToList();
+
+        var payments = _cardHistoryTransactions
+            .Where(t => t.Type == TransactionType.Payment)
+            .ToList();
+
+        // Collect all distinct settlement dates from both purchases and payments
+        var allDates = purchases.Select(ResolveSettlementDate)
+            .Union(payments.Select(ResolveSettlementDate))
+            .OrderBy(d => d)
+            .ToList();
+
+        if (allDates.Count == 0)
+        {
+            return new();
+        }
+
+        var cycles = new List<CardSettlementCycle>();
+
+        foreach (var date in allDates)
+        {
+            var purchasesTotal = purchases
+                .Where(t => ResolveSettlementDate(t) == date)
+                .Sum(t => t.Amount);
+
+            var paymentsTotal = payments
+                .Where(t => ResolveSettlementDate(t) == date)
+                .Sum(t => t.Amount);
+
+            var remaining = Math.Max(0m, purchasesTotal - paymentsTotal);
+
+            cycles.Add(new CardSettlementCycle(date, purchasesTotal, paymentsTotal, remaining));
+        }
+
+        return cycles;
     }
 }
